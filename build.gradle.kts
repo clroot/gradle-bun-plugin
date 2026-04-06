@@ -7,6 +7,10 @@ plugins {
 group = property("group") as String
 version = property("version") as String
 
+repositories {
+    mavenCentral()
+}
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
