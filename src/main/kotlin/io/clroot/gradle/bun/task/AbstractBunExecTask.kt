@@ -27,6 +27,7 @@ abstract class AbstractBunExecTask : DefaultTask() {
         args.addAll(values.toList())
     }
 
+    @Internal
     protected open fun getCommand(): List<String> = args.get()
 
     @TaskAction
