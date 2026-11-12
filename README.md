@@ -9,6 +9,7 @@ Gradle plugin that auto-downloads and manages [Bun](https://bun.sh) — no globa
 - Configuration Cache compatible (Gradle 8.0+)
 - Incremental build support
 - `BunTask`, `BunxTask`, `BunInstallTask` for running any bun command
+- `io.clroot.gradle-bun-frontend`: turn a frontend directory into a Gradle module
 - macOS, Linux, Windows (x64, arm64)
 
 ## Installation
@@ -16,7 +17,7 @@ Gradle plugin that auto-downloads and manages [Bun](https://bun.sh) — no globa
 ```kotlin
 // build.gradle.kts
 plugins {
-    id("io.clroot.gradle-bun") version "0.1.0"
+    id("io.clroot.gradle-bun") version "0.2.0"
 }
 
 bun {
@@ -86,7 +87,7 @@ All custom tasks automatically depend on `bunSetup` — bun is downloaded on fir
 ```kotlin
 plugins {
     id("org.springframework.boot") version "3.4.0"
-    id("io.clroot.gradle-bun") version "0.1.0"
+    id("io.clroot.gradle-bun") version "0.2.0"
 }
 
 bun {
@@ -94,17 +95,76 @@ bun {
     workingDir = layout.projectDirectory.dir("frontend")
 }
 
-tasks.register<BunTask>("buildFrontend") {
+val buildFrontend by tasks.registering(BunTask::class) {
     dependsOn("bunInstall")
     args("run", "build")
     inputs.dir("frontend/src")
-    outputs.dir("src/main/resources/static")
+    outputs.dir("frontend/dist")
 }
 
-tasks.named("processResources") {
-    dependsOn("buildFrontend")
+tasks.processResources {
+    from(buildFrontend) { into("static") }
 }
 ```
+
+For a cleaner setup with the frontend as its own Gradle module, see [Frontend module](#frontend-module-multi-project).
+
+## Frontend module (multi-project)
+
+Apply `io.clroot.gradle-bun-frontend` to make a frontend directory a first-class Gradle subproject.
+It applies `io.clroot.gradle-bun` and `base`, then:
+
+- registers `bunBuild` (`bun run build`, incremental: sources in, `dist` out) and wires it into `assemble`
+- makes `clean` delete the output directory
+- exposes the output through a consumable `bunDist` configuration
+- optionally registers `bun run <script>` tasks wired into `check`
+
+```kotlin
+// settings.gradle.kts
+include(":frontend")
+```
+
+```kotlin
+// frontend/build.gradle.kts
+plugins {
+    id("io.clroot.gradle-bun-frontend") version "0.2.0"
+}
+
+bun {
+    version = "1.2.0"
+}
+
+bunFrontend {
+    buildScript = "build"                          // default: "build"
+    outputDir = layout.projectDirectory.dir("dist") // default: <bun.workingDir>/dist
+    inputExcludes.add("coverage/**")               // node_modules, .gradle, build, outputDir are always excluded
+    checkScripts("lint", "test")                   // registers bunLint, bunTest -> check
+}
+```
+
+Consume the build output from another project, e.g. a Spring Boot app at the root:
+
+```kotlin
+// build.gradle.kts
+val frontendDist by configurations.creating {
+    isCanBeConsumed = false
+}
+
+dependencies {
+    frontendDist(project(path = ":frontend", configuration = "bunDist"))
+}
+
+tasks.processResources {
+    from(frontendDist) { into("static") }
+}
+```
+
+`processResources` now depends on `:frontend:bunBuild` automatically. No `dependsOn` wiring is needed.
+
+| Task | Description |
+|------|-------------|
+| `bunBuild` | Runs `bun run <buildScript>`; part of `assemble` |
+| `bun<Script>` | Created by `checkScripts(...)` (`format:check` → `bunFormatCheck`); part of `check` |
 
 ## Requirements
 
