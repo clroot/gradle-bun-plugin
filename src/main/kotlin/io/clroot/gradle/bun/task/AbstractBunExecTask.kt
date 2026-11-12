@@ -8,6 +8,7 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.process.ExecOperations
+import java.io.File
 import javax.inject.Inject
 
 abstract class AbstractBunExecTask : DefaultTask() {
@@ -33,8 +34,17 @@ abstract class AbstractBunExecTask : DefaultTask() {
     @TaskAction
     fun execute() {
         val commandArgs = getCommand()
+        val executable = bunExecutable.get().asFile
         execOperations.exec { spec ->
-            spec.executable(bunExecutable.get().asFile.absolutePath)
+            spec.executable(executable.absolutePath)
+            // Scripts that call `bun` themselves must resolve to this binary, not a global install.
+            val pathKey = spec.environment.keys.firstOrNull { it.equals("PATH", ignoreCase = true) } ?: "PATH"
+            val currentPath = spec.environment[pathKey]?.toString().orEmpty()
+            val bunDir = executable.parentFile.absolutePath
+            spec.environment(
+                pathKey,
+                if (currentPath.isEmpty()) bunDir else bunDir + File.pathSeparator + currentPath,
+            )
             spec.args(commandArgs)
             spec.workingDir(this@AbstractBunExecTask.workingDir.get().asFile)
         }
