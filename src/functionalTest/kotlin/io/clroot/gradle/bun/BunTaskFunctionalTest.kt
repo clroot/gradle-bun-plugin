@@ -74,4 +74,46 @@ class BunTaskFunctionalTest {
         assertThat(result.task(":bunSetup")?.outcome).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE)
         assertThat(result.task(":bunVersion")?.outcome).isEqualTo(TaskOutcome.SUCCESS)
     }
+
+    @Test
+    fun `bun invoked from a package script resolves to the managed binary`() {
+        settingsFile.writeText("")
+        buildFile.writeText(
+            """
+            import io.clroot.gradle.bun.task.BunTask
+
+            plugins {
+                id("io.clroot.gradle-bun")
+            }
+            bun {
+                version = "1.2.0"
+            }
+            tasks.register<BunTask>("nested") {
+                args("run", "nested")
+            }
+            """.trimIndent()
+        )
+        projectDir.resolve("package.json").writeText(
+            """
+            {
+                "name": "test-project",
+                "version": "0.0.0",
+                "scripts": {
+                    "nested": "bun -e \"console.log('nested-bun=' + process.execPath)\""
+                }
+            }
+            """.trimIndent()
+        )
+
+        val result = GradleRunner.create()
+            .withProjectDir(projectDir)
+            .withPluginClasspath()
+            .withArguments("nested")
+            .forwardOutput()
+            .build()
+
+        val managedDir = projectDir.resolve(".gradle/bun/1.2.0").canonicalPath
+        val execPath = result.output.lines().first { it.startsWith("nested-bun=") }.removePrefix("nested-bun=")
+        assertThat(File(execPath).canonicalPath).startsWith(managedDir)
+    }
 }
