@@ -48,7 +48,7 @@ class BunPlugin : Plugin<Project> {
             }
         }
 
-        project.tasks.register("bunInstall", BunInstallTask::class.java) { task ->
+        project.tasks.register(BUN_INSTALL_TASK_NAME, BunInstallTask::class.java) { task ->
             task.group = "bun"
             task.description = "Runs bun install."
             task.dependsOn(bunSetup)
@@ -62,6 +62,10 @@ class BunPlugin : Plugin<Project> {
             task.bunExecutable.convention(bunExecutable)
             task.workingDir.convention(extension.workingDir)
         }
+    }
+
+    companion object {
+        const val BUN_INSTALL_TASK_NAME = "bunInstall"
     }
 
     private fun resolveSystemBun(): String? {

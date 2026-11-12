@@ -29,6 +29,13 @@ gradlePlugin {
             tags = listOf("bun", "javascript", "frontend", "build")
             implementationClass = "io.clroot.gradle.bun.BunPlugin"
         }
+        create("bunFrontend") {
+            id = "io.clroot.gradle-bun-frontend"
+            displayName = "Gradle Bun Frontend Plugin"
+            description = "Turns a bun-based frontend directory into a Gradle module - bunBuild wired into assemble, output exposed via the bunDist configuration"
+            tags = listOf("bun", "javascript", "frontend", "build")
+            implementationClass = "io.clroot.gradle.bun.BunFrontendPlugin"
+        }
     }
 }
 
